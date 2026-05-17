@@ -54,7 +54,7 @@ are also accepted."
   :type '(repeat integer)
   :group 'stock-watch)
 
-(defcustom stock-watch-ma-sample-count 60
+(defcustom stock-watch-ma-sample-count 30
   "Number of recent moving-average sample points to draw."
   :type 'integer
   :group 'stock-watch)
@@ -105,6 +105,41 @@ are also accepted."
 (defface stock-watch-error-face
   '((t :foreground "orange red" :weight bold))
   "Face for fetch or parse errors."
+  :group 'stock-watch)
+
+(defface stock-watch-ma5-face
+  '((t :foreground "deep sky blue" :weight bold))
+  "Face for MA5 chart lines."
+  :group 'stock-watch)
+
+(defface stock-watch-ma10-face
+  '((t :foreground "gold" :weight bold))
+  "Face for MA10 chart lines."
+  :group 'stock-watch)
+
+(defface stock-watch-ma15-face
+  '((t :foreground "medium purple" :weight bold))
+  "Face for MA15 chart lines."
+  :group 'stock-watch)
+
+(defface stock-watch-ma20-face
+  '((t :foreground "orange" :weight bold))
+  "Face for MA20 chart lines."
+  :group 'stock-watch)
+
+(defface stock-watch-ma30-face
+  '((t :foreground "cyan" :weight bold))
+  "Face for MA30 chart lines."
+  :group 'stock-watch)
+
+(defface stock-watch-ma60-face
+  '((t :foreground "magenta" :weight bold))
+  "Face for MA60 chart lines."
+  :group 'stock-watch)
+
+(defface stock-watch-ma-overlap-face
+  '((t :foreground "white" :background "gray35" :weight bold))
+  "Face for moving-average line overlaps."
   :group 'stock-watch)
 
 (provide 'stock-watch-config)

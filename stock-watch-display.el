@@ -188,31 +188,40 @@
                            (15 . "B")
                            (20 . "C")
                            (30 . "D")
-                           (60 . "S")))
-           (cons period "*"))))
+                            (60 . "S")))
+            (cons period "*"))))
+
+(defun stock-watch--ma-face (period)
+  "Return face for moving-average PERIOD."
+  (cdr (or (assoc period '((5 . stock-watch-ma5-face)
+                           (10 . stock-watch-ma10-face)
+                           (15 . stock-watch-ma15-face)
+                           (20 . stock-watch-ma20-face)
+                           (30 . stock-watch-ma30-face)
+                           (60 . stock-watch-ma60-face)))
+           (cons period 'bold))))
 
 (defun stock-watch--ma-point-row (value minimum maximum rows)
   "Scale moving-average VALUE between MINIMUM and MAXIMUM to ROWS."
   (stock-watch--scale-price value minimum maximum rows))
 
-(defun stock-watch--grid-set (grid row column char)
-  "Set GRID at ROW and COLUMN to CHAR, marking overlaps with `*'."
+(defun stock-watch--grid-set (grid row column char face)
+  "Set GRID at ROW and COLUMN to CHAR with FACE.
+Existing cells keep their current marker to avoid noisy overlap glyphs."
   (when (and (<= 0 row)
              (< row (length grid))
              (<= 0 column)
              (< column (length (aref grid row))))
     (let ((line (aref grid row)))
-      (aset line column
-            (if (eq (aref line column) ?\s)
-                char
-              ?*)))))
+      (unless (aref line column)
+        (aset line column (cons char face))))))
 
 (defun stock-watch--draw-ma-segment
-    (grid index previous-index row previous-row marker step)
+    (grid index previous-index row previous-row marker face step)
   "Draw one moving-average segment on GRID.
 INDEX and PREVIOUS-INDEX are sample positions.  ROW and PREVIOUS-ROW are
-their scaled row positions.  MARKER identifies the moving average and STEP is
-the number of text columns between two samples."
+their scaled row positions.  MARKER identifies the moving average.  FACE
+colors the segment, and STEP is the number of text columns between two samples."
   (let* ((from-column (* previous-index step))
          (to-column (* index step))
          (span (max 1 (- to-column from-column)))
@@ -225,15 +234,16 @@ the number of text columns between two samples."
              (ratio (/ offset (float span)))
              (line-row (round (+ previous-row
                                   (* ratio (- row previous-row))))))
-        (stock-watch--grid-set grid line-row column line-char)))
-    (stock-watch--grid-set grid previous-row from-column marker)
-    (stock-watch--grid-set grid row to-column marker)))
+        (stock-watch--grid-set grid line-row column line-char face)))
+    (stock-watch--grid-set grid previous-row from-column marker face)
+    (stock-watch--grid-set grid row to-column marker face)))
 
 (defun stock-watch--draw-ma-series
-    (grid values minimum maximum rows marker step)
+    (grid values minimum maximum rows marker face step)
   "Draw moving-average VALUES on GRID.
 MINIMUM and MAXIMUM define the y-axis scale with ROWS rows.  MARKER identifies
-the moving-average line, and STEP is the horizontal text scale."
+the moving-average line.  FACE colors it, and STEP is the horizontal text
+scale."
   (let ((previous-index nil)
         (previous-row nil))
     (cl-loop for value in values
@@ -244,8 +254,8 @@ the moving-average line, and STEP is the horizontal text scale."
                            value minimum maximum rows)))
                  (if previous-index
                      (stock-watch--draw-ma-segment
-                      grid index previous-index row previous-row marker step)
-                   (stock-watch--grid-set grid row (* index step) marker))
+                      grid index previous-index row previous-row marker face step)
+                   (stock-watch--grid-set grid row (* index step) marker face))
                  (setq previous-index index
                        previous-row row))))))
 
@@ -258,7 +268,7 @@ points on the x-axis and ROWS is the chart height."
          (width (1+ (* (1- sample-count) step)))
          (grid (make-vector rows nil)))
     (dotimes (row rows)
-      (aset grid row (make-vector width ?\s)))
+      (aset grid row (make-vector width nil)))
     (dolist (entry series)
       (stock-watch--draw-ma-series
        grid
@@ -267,15 +277,21 @@ points on the x-axis and ROWS is the chart height."
        maximum
        rows
        (string-to-char (stock-watch--ma-marker (car entry)))
+       (stock-watch--ma-face (car entry))
        step))
     (dotimes (row rows)
       (let ((price (if (= maximum minimum)
                        maximum
                      (- maximum (* (/ (- maximum minimum) (float (1- rows)))
                                    row)))))
-        (insert (format "%8.2f │ %s\n"
-                        price
-                        (apply #'string (append (aref grid row) nil))))))
+        (insert (format "%8.2f │ " price))
+        (dotimes (column width)
+          (let ((cell (aref (aref grid row) column)))
+            (insert (if cell
+                        (propertize (char-to-string (car cell))
+                                    'face (cdr cell))
+                      " "))))
+        (insert "\n")))
     (insert "         └")
     (dotimes (_ width)
       (insert "─"))
@@ -347,10 +363,10 @@ points on the x-axis and ROWS is the chart height."
                            stock-watch-ma-sample-count)))
         (insert "Legend: ")
         (dolist (entry drawable-series)
-          (insert (format "%s=MA%d "
-                           (stock-watch--ma-marker (car entry))
-                           (car entry))))
-        (insert "\n")
+          (insert (propertize (stock-watch--ma-marker (car entry))
+                              'face (stock-watch--ma-face (car entry)))
+                  (format "=MA%d " (car entry))))
+        (insert "(overlaps keep the first drawn line)\n")
         (when single-point-series
           (insert "Skipped single-point averages: ")
           (dolist (entry single-point-series)

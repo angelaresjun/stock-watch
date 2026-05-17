@@ -47,14 +47,27 @@
     "stock-watch-core.el")
   "Stock-watch module files loaded by the package entry point.")
 
+(defvar stock-watch--source-directory nil
+  "Directory containing stock-watch source modules.")
+
+(defun stock-watch--module-directory ()
+  "Return the directory containing stock-watch source modules."
+  (let* ((entry-file (or load-file-name buffer-file-name))
+         (directory (or (and entry-file (file-name-directory entry-file))
+                        stock-watch--source-directory
+                        (when-let* ((library (locate-library "stock-watch.el")))
+                          (file-name-directory library)))))
+    (when (and directory
+               (cl-every (lambda (module)
+                           (file-exists-p (expand-file-name module directory)))
+                         stock-watch--module-files))
+      (setq stock-watch--source-directory directory)
+      directory)))
+
 (defun stock-watch--load-modules ()
   "Load stock-watch modules in dependency order."
-  (let* ((entry-file (or load-file-name buffer-file-name))
-         (directory (and entry-file (file-name-directory entry-file))))
-    (if (and directory
-             (cl-every (lambda (module)
-                         (file-exists-p (expand-file-name module directory)))
-                       stock-watch--module-files))
+  (let ((directory (stock-watch--module-directory)))
+    (if directory
         (dolist (module stock-watch--module-files)
           (load (expand-file-name module directory) nil nil))
       (require 'stock-watch-core))))
@@ -69,7 +82,8 @@
   "Reload stock-watch source modules from the current package directory."
   (interactive)
   (stock-watch--load-modules)
-  (message "stock-watch reloaded; K-line fetch will request %d history days"
+  (message "stock-watch reloaded from %s; reopen charts to refresh text properties; K-line fetch will request %d history days"
+           stock-watch--source-directory
            (stock-watch--kline-history-days)))
 
 ;;;###autoload

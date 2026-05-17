@@ -127,12 +127,13 @@ Disable alert bell:
 
 ```elisp
 (setq stock-watch-ma-periods '(5 10 15 20 30 60))
-(setq stock-watch-ma-sample-count 60)
+(setq stock-watch-ma-sample-count 30)
 ```
 
 The K-line fetch automatically requests enough history for the longest moving
-average.  With the default settings, it requests 119 daily records so MA60 can
-show 60 samples.
+average.  With the default settings, it requests 89 daily records so MA60 can
+show 30 samples.  Each moving-average line is colored separately in graphical
+Emacs frames; overlaps keep the first drawn line to reduce visual noise.
 
 ### Intraday chart
 
@@ -176,6 +177,9 @@ When working from a local checkout, reload all split modules with:
 ```text
 M-x stock-watch-reload
 ```
+
+Existing chart buffers keep their old text properties; reopen a K-line chart
+after reloading to see display changes such as new colors.
 
 ## Data Source
 
