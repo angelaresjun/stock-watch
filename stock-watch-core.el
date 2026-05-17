@@ -96,29 +96,65 @@
                       normalized-code (error-message-string err)))))))
      history-days))
 
-(defun stock-watch--goto-entry (entry-id column)
-  "Move point to ENTRY-ID and restore COLUMN when possible."
+(defun stock-watch--entry-position (entry-id column)
+  "Return position of ENTRY-ID at COLUMN, or nil if not found."
   (let ((position (point-min))
         found)
     (while (and (not found) (< position (point-max)))
       (when (equal (get-text-property position 'tabulated-list-id) entry-id)
         (setq found position))
-      (let ((next-position
-             (next-single-property-change
-              position 'tabulated-list-id nil (point-max))))
-        (setq position
-              (if (= next-position position)
-                  (1+ position)
-                next-position))))
+      (unless found
+        (let ((next-position
+               (next-single-property-change
+                position 'tabulated-list-id nil (point-max))))
+          (setq position
+                (if (= next-position position)
+                    (1+ position)
+                  next-position)))))
     (when found
-      (goto-char found)
-      (beginning-of-line)
-      (move-to-column column))))
+      (save-excursion
+        (goto-char found)
+        (beginning-of-line)
+        (move-to-column column)
+        (point)))))
+
+(defun stock-watch--goto-entry (entry-id column)
+  "Move point to ENTRY-ID and restore COLUMN when possible."
+  (when-let* ((position (stock-watch--entry-position entry-id column)))
+    (goto-char position)))
+
+(defun stock-watch--point-state-at (position)
+  "Return tabulated-list entry and column at POSITION."
+  (save-excursion
+    (goto-char position)
+    (list (or (tabulated-list-get-id)
+              (get-text-property (line-beginning-position)
+                                 'tabulated-list-id))
+          (current-column))))
+
+(defun stock-watch--window-point-states (buffer)
+  "Return point states for windows displaying BUFFER."
+  (mapcar
+   (lambda (window)
+     (with-current-buffer buffer
+       (pcase-let ((`(,entry-id ,column)
+                    (stock-watch--point-state-at (window-point window))))
+         (list window entry-id column))))
+   (get-buffer-window-list buffer nil t)))
+
+(defun stock-watch--restore-window-point-states (states)
+  "Restore window point STATES after a stock table refresh."
+  (dolist (state states)
+    (pcase-let ((`(,window ,entry-id ,column) state))
+      (when (and (window-live-p window) entry-id)
+        (when-let* ((position (stock-watch--entry-position entry-id column)))
+          (set-window-point window position))))))
 
 (defun stock-watch--refresh-buffer ()
   "Refresh the stock watch buffer from `stock-watch--quotes'."
   (when-let* ((buffer (get-buffer stock-watch-buffer-name)))
-    (with-current-buffer buffer
+    (let ((window-states (stock-watch--window-point-states buffer)))
+      (with-current-buffer buffer
       (let ((current-entry (tabulated-list-get-id))
             (current-column (current-column)))
         (setq tabulated-list-entries
@@ -133,7 +169,8 @@
                    stock-watch-refresh-interval
                    stock-watch-alert-threshold-pct)))
         (when current-entry
-          (stock-watch--goto-entry current-entry current-column))))))
+          (stock-watch--goto-entry current-entry current-column))
+        (stock-watch--restore-window-point-states window-states))))))
 
 (defun stock-watch--process-alerts (quotes)
   "Ring bell for newly alerted QUOTES."
