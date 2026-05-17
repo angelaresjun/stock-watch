@@ -15,8 +15,8 @@
 - Fetches stock names from the quote API automatically
 - Configurable refresh interval
 - Manual refresh with `g`
-- On-demand 10-day K-line chart with `k`
-- Intraday chart from a selected K-line date with `RET` or `m`
+- On-demand 10-day K-line chart with `C-c C-k`
+- Intraday chart from a selected K-line date with `C-c C-m`
 - Stop and quit with `q`
 - Highlighted rise/fall values
 - Threshold alert with Emacs bell
@@ -144,6 +144,8 @@ Intraday charts are built from recent 5-minute records by default:
 | Key | Action |
 | --- | --- |
 | `g` | Refresh quotes now |
+| `C-c C-k` | Show a 10-day K-line chart for the stock at point |
+| `RET` | Show a 10-day K-line chart for the stock at point |
 | `k` | Show a 10-day K-line chart for the stock at point |
 | `q` | Stop the refresh timer and quit the window |
 
@@ -151,6 +153,7 @@ In the K-line buffer:
 
 | Key | Action |
 | --- | --- |
+| `C-c C-m` | Show the intraday chart for the date at point |
 | `RET` / `m` | Show the intraday chart for the date at point |
 | `q` | Quit the K-line window |
 

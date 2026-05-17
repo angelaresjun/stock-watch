@@ -142,6 +142,7 @@ are also accepted."
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "RET") #'stock-watch-show-intraday-at-point)
     (define-key map (kbd "m") #'stock-watch-show-intraday-at-point)
+    (define-key map (kbd "C-c RET") #'stock-watch-show-intraday-at-point)
     map)
   "Keymap for `stock-watch-kline-mode'.")
 
@@ -199,6 +200,29 @@ to show the intraday chart for that day.")
   (or (tabulated-list-get-id)
       (stock-watch-normalize-code
        (read-string "Stock code: " (car stock-watch-symbols)))))
+
+(defun stock-watch--quote-by-code (code)
+  "Return the quote plist for CODE."
+  (let ((normalized-code (stock-watch-normalize-code code)))
+    (cl-find-if
+     (lambda (quote)
+       (equal (plist-get quote :code) normalized-code))
+     stock-watch--quotes)))
+
+(defun stock-watch--name-by-code (code)
+  "Return the stock name for CODE, or nil if it is unavailable."
+  (when-let* ((quote (stock-watch--quote-by-code code))
+              (name (plist-get quote :name)))
+    (unless (or (string-empty-p name)
+                (equal name (plist-get quote :code)))
+      name)))
+
+(defun stock-watch--label (code &optional name)
+  "Return display label for stock CODE and optional NAME."
+  (let ((stock-name (or name (stock-watch--name-by-code code))))
+    (if stock-name
+        (format "%s (%s)" stock-name (stock-watch-normalize-code code))
+      (stock-watch-normalize-code code))))
 
 (defun stock-watch--parse-line (line)
   "Parse one Sina response LINE and return a plist quote."
@@ -267,8 +291,8 @@ to show the intraday chart for that day.")
                    (funcall callback (stock-watch--parse-response body)))))
            (when (buffer-live-p response-buffer)
              (kill-buffer response-buffer)))))
-      nil
-      t)))
+     nil
+     t)))
 
 (defun stock-watch--alist-number (key alist)
   "Return numeric value for KEY in ALIST."
@@ -399,8 +423,9 @@ to show the intraday chart for that day.")
       (propertize "│" 'face face))
      (t " "))))
 
-(defun stock-watch--render-kline-chart (code candles)
-  "Render a K-line chart for CODE from CANDLES."
+(defun stock-watch--render-kline-chart (code candles &optional name)
+  "Render a K-line chart for CODE from CANDLES.
+Use NAME in the chart title if it is non-nil."
   (let* ((rows 16)
          (highs (mapcar (lambda (candle) (plist-get candle :high)) candles))
          (lows (mapcar (lambda (candle) (plist-get candle :low)) candles))
@@ -408,7 +433,7 @@ to show the intraday chart for that day.")
          (minimum (apply #'min lows))
          (last-close (plist-get (car (last candles)) :close)))
     (insert (format "%s  %d-day K-line  Last close: %.2f\n\n"
-                    code (length candles) last-close))
+                    (stock-watch--label code name) (length candles) last-close))
     (dotimes (row rows)
       (let ((price (- maximum (* (/ (- maximum minimum) (float (1- rows)))
                                  row))))
@@ -425,7 +450,7 @@ to show the intraday chart for that day.")
     (dolist (candle candles)
       (insert (format "%5s" (substring (plist-get candle :day) 5))))
     (insert "\n\n")
-    (insert "Move point to a date row and press RET or m for intraday chart.\n\n")
+    (insert "Move point to a date row and press C-c C-m, RET, or m for intraday chart.\n\n")
     (insert "Date        Open    High     Low   Close        Volume\n")
     (dolist (candle candles)
       (let ((day (plist-get candle :day)))
@@ -440,9 +465,10 @@ to show the intraday chart for that day.")
                   (stock-watch--format-number
                    (plist-get candle :volume)))
           'stock-watch-code code
+          'stock-watch-name (or name (stock-watch--name-by-code code))
           'stock-watch-date day
           'mouse-face 'highlight
-          'help-echo "RET or m: show intraday chart"))))))
+          'help-echo "C-c C-m, RET, or m: show intraday chart"))))))
 
 (defun stock-watch--line-property (property)
   "Return text PROPERTY from the current line."
@@ -451,15 +477,17 @@ to show the intraday chart for that day.")
         (beginning-of-line)
         (get-text-property (point) property))))
 
-(defun stock-watch--render-intraday-chart (code date bars)
-  "Render an intraday line chart for CODE on DATE from BARS."
+(defun stock-watch--render-intraday-chart (code date bars &optional name)
+  "Render an intraday line chart for CODE on DATE from BARS.
+Use NAME in the chart title if it is non-nil."
   (let* ((rows 14)
          (closes (mapcar (lambda (bar) (plist-get bar :close)) bars))
          (maximum (apply #'max closes))
          (minimum (apply #'min closes))
          (last-close (car (last closes))))
     (insert (format "%s  %s  %d-minute intraday  Last: %.2f\n\n"
-                    code date stock-watch-intraday-interval last-close))
+                    (stock-watch--label code name)
+                    date stock-watch-intraday-interval last-close))
     (dotimes (row rows)
       (let ((price (- maximum (* (/ (- maximum minimum) (float (1- rows)))
                                  row))))
@@ -492,14 +520,15 @@ to show the intraday chart for that day.")
                       (stock-watch--format-number
                        (plist-get bar :volume)))))))
 
-(defun stock-watch--display-intraday (code date bars)
-  "Display intraday BARS for CODE on DATE."
+(defun stock-watch--display-intraday (code date bars &optional name)
+  "Display intraday BARS for CODE on DATE.
+Use NAME in the chart title if it is non-nil."
   (let ((buffer (get-buffer-create stock-watch-intraday-buffer-name)))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (setq buffer-read-only nil)
         (erase-buffer)
-        (stock-watch--render-intraday-chart code date bars)
+        (stock-watch--render-intraday-chart code date bars name)
         (goto-char (point-min))
         (special-mode)))
     (if-let* ((window (display-buffer
@@ -515,6 +544,7 @@ to show the intraday chart for that day.")
   "Show intraday chart for the K-line date at point."
   (interactive)
   (let ((code (stock-watch--line-property 'stock-watch-code))
+        (name (stock-watch--line-property 'stock-watch-name))
         (date (stock-watch--line-property 'stock-watch-date)))
     (unless (and code date)
       (user-error "Move point to a date row first"))
@@ -527,20 +557,21 @@ to show the intraday chart for that day.")
            (message "Failed to fetch intraday data for %s %s: %s"
                     code date error)
          (condition-case err
-             (stock-watch--display-intraday code date bars)
+             (stock-watch--display-intraday code date bars name)
            (error
             (message "Failed to display intraday data for %s %s: %s"
                      code date (error-message-string err)))))))))
 
-(defun stock-watch--display-kline (code candles)
-  "Display K-line CANDLES for CODE."
+(defun stock-watch--display-kline (code candles &optional name)
+  "Display K-line CANDLES for CODE.
+Use NAME in the chart title if it is non-nil."
   (let ((buffer (get-buffer-create stock-watch-kline-buffer-name)))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (setq buffer-read-only nil)
         (erase-buffer)
         (if candles
-            (stock-watch--render-kline-chart code candles)
+            (stock-watch--render-kline-chart code candles name)
           (insert (format "No K-line data for %s\n" code)))
         (goto-char (point-min))
         (stock-watch-kline-mode)))
@@ -556,7 +587,8 @@ to show the intraday chart for that day.")
 (defun stock-watch-show-kline (code)
   "Show a recent K-line chart for CODE."
   (interactive (list (stock-watch--current-code)))
-  (let ((normalized-code (stock-watch-normalize-code code)))
+  (let* ((normalized-code (stock-watch-normalize-code code))
+         (name (stock-watch--name-by-code normalized-code)))
     (message "Fetching K-line data for %s..." normalized-code)
     (stock-watch--fetch-kline
      normalized-code
@@ -565,7 +597,7 @@ to show the intraday chart for that day.")
            (message "Failed to fetch K-line data for %s: %s"
                     normalized-code error)
          (condition-case err
-             (stock-watch--display-kline normalized-code candles)
+             (stock-watch--display-kline normalized-code candles name)
            (error
             (message "Failed to display K-line data for %s: %s"
                      normalized-code (error-message-string err)))))))))
@@ -623,7 +655,7 @@ to show the intraday chart for that day.")
             (mapcar #'stock-watch--entry stock-watch--quotes))
       (tabulated-list-print t)
       (setq header-line-format
-            (format "Last update: %s | Interval: %ss | Alert: ±%.2f%% | g refresh | k K-line | q quit"
+            (format "Last update: %s | Interval: %ss | Alert: ±%.2f%% | g refresh | C-c C-k K-line | q quit"
                     (or stock-watch--last-update "-")
                     stock-watch-refresh-interval
                     stock-watch-alert-threshold-pct)))))
@@ -703,6 +735,8 @@ to show the intraday chart for that day.")
   (tabulated-list-init-header)
   (local-set-key (kbd "g") #'stock-watch-refresh)
   (local-set-key (kbd "k") #'stock-watch-show-kline)
+  (local-set-key (kbd "RET") #'stock-watch-show-kline)
+  (local-set-key (kbd "C-c C-k") #'stock-watch-show-kline)
   (local-set-key (kbd "q") #'stock-watch-quit))
 
 ;;;###autoload
