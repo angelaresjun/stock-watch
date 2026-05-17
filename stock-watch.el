@@ -1,8 +1,9 @@
-;;; stock-watch.el --- Real-time A-share watcher in Emacs -*- lexical-binding: t; -*-
+;;; stock-watch.el --- Real-time A-share watcher -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 Joshua
 
 ;; Author: Joshua
+;; Assisted-by: GitHub Copilot CLI:gpt-5.5
 ;; Maintainer: Joshua
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "27.1"))
