@@ -100,6 +100,43 @@
       (propertize "│" 'face face))
      (t " "))))
 
+(defun stock-watch--volume-height (volume maximum rows)
+  "Scale VOLUME against MAXIMUM to a bar height under ROWS."
+  (if (or (<= maximum 0) (<= volume 0))
+      0
+    (max 1 (ceiling (* (/ volume (float maximum)) rows)))))
+
+(defun stock-watch--render-volume-bars (candles)
+  "Render volume bars for K-line CANDLES."
+  (let* ((rows 4)
+         (volumes (mapcar (lambda (candle) (plist-get candle :volume)) candles))
+         (maximum (apply #'max volumes)))
+    (insert "  Volume │ ")
+    (dotimes (row rows)
+      (when (> row 0)
+        (insert "         │ "))
+      (let ((threshold (- rows row)))
+        (dolist (candle candles)
+          (let* ((open (plist-get candle :open))
+                 (close (plist-get candle :close))
+                 (volume (plist-get candle :volume))
+                 (height (stock-watch--volume-height volume maximum rows))
+                 (face (if (>= close open)
+                           'stock-watch-up-face
+                         'stock-watch-down-face)))
+            (insert "  " (propertize (if (>= height threshold) "█" " ")
+                                      'face face)
+                    "  "))))
+      (insert "\n"))
+    (insert "         └")
+    (dotimes (_ (length candles))
+      (insert "─────"))
+    (insert "\n          ")
+    (dolist (candle candles)
+      (insert (format "%5s" (substring (plist-get candle :day) 5))))
+    (insert (format "\n          Max volume: %s\n"
+                    (stock-watch--format-number maximum)))))
+
 (defun stock-watch--render-kline-chart (code candles &optional name)
   "Render a K-line chart for CODE from CANDLES.
 Use NAME in the chart title if it is non-nil."
@@ -127,20 +164,31 @@ Use NAME in the chart title if it is non-nil."
     (dolist (candle candles)
       (insert (format "%5s" (substring (plist-get candle :day) 5))))
     (insert "\n\n")
+    (stock-watch--render-volume-bars candles)
+    (insert "\n")
     (insert "Move point to a date row and press C-c C-m, RET, or m for intraday chart.\n\n")
-    (insert "Date        Open    High     Low   Close        Volume\n")
+    (insert "Date        Open    High     Low   Close        Volume  Volume Bar\n")
     (dolist (candle candles)
       (let ((day (plist-get candle :day)))
         (insert
          (propertize
-          (format "%s  %6.2f  %6.2f  %6.2f  %6.2f  %12s\n"
+          (format "%s  %6.2f  %6.2f  %6.2f  %6.2f  %12s  %s\n"
                   day
                   (plist-get candle :open)
                   (plist-get candle :high)
                   (plist-get candle :low)
                   (plist-get candle :close)
                   (stock-watch--format-number
-                   (plist-get candle :volume)))
+                   (plist-get candle :volume))
+                  (make-string
+                   (stock-watch--volume-height
+                    (plist-get candle :volume)
+                    (apply #'max
+                           (mapcar (lambda (item)
+                                     (plist-get item :volume))
+                                   candles))
+                    12)
+                   ?█))
           'stock-watch-code code
           'stock-watch-name name
           'stock-watch-date day
