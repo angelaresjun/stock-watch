@@ -28,18 +28,35 @@ https://hq.sinajs.cn/list=...
 
 ## Installation
 
+### From package archives
+
+Once `stock-watch` is accepted by an Emacs package archive, install it with:
+
+```text
+M-x package-refresh-contents
+M-x package-install RET stock-watch RET
+```
+
+For default `list-packages` visibility, submit the package to NonGNU ELPA. For
+MELPA, users need MELPA in `package-archives` first.
+
+### Manual install
+
 Clone or download this repository, then add it to your Emacs `load-path`:
 
 ```elisp
-(add-to-list 'load-path "/path/to/stocks")
+(add-to-list 'load-path "/path/to/stock-watch")
 (require 'stock-watch)
 ```
 
-For this local project path:
+### MELPA recipe
+
+The MELPA recipe for this repository should be:
 
 ```elisp
-(add-to-list 'load-path "/Users/joshua/project/stocks")
-(require 'stock-watch)
+(stock-watch :fetcher github
+             :repo "angelaresjun/stock-watch"
+             :files ("stock-watch.el"))
 ```
 
 ## Quick Start
@@ -164,3 +181,8 @@ This repository also contains a Python implementation with terminal and HTML out
 ```
 
 `stock-watch.el` is independent from the Python version and can be used as a standalone Emacs plugin.
+
+## License
+
+`stock-watch.el` is free software licensed under the GNU General Public License,
+version 3 or later. See [LICENSE](LICENSE) for details.
