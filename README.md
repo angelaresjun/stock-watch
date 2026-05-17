@@ -1,5 +1,7 @@
 # stock-watch.el
 
+[中文](README.zh-CN.md) | English
+
 `stock-watch.el` is a lightweight Emacs stock watcher for China A-shares. It fetches real-time quotes from Sina Finance and displays them in an Emacs `tabulated-list-mode` buffer.
 
 ## Features
@@ -155,10 +157,6 @@ Rising values are shown in red, falling values in green, and threshold alerts ar
 
 ## Troubleshooting
 
-### `Invalid regexp`
-
-Use the latest version of `stock-watch.el`. Older code used a regexp lookahead for number formatting, which Emacs regexp does not support.
-
 ### `No data`
 
 Possible reasons:
@@ -172,15 +170,6 @@ Possible reasons:
 
 The Sina response is GBK encoded. This plugin decodes it internally. If you inspect the raw endpoint manually, use a tool that supports GBK conversion.
 
-## Related Python Version
-
-This repository also contains a Python implementation with terminal and HTML output:
-
-```bash
-.venv/bin/python main.py
-```
-
-`stock-watch.el` is independent from the Python version and can be used as a standalone Emacs plugin.
 
 ## License
 
