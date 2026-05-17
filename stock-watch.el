@@ -345,7 +345,7 @@ to show the intraday chart for that day.")
                        (let ((bars
                               (cl-remove-if-not
                                (lambda (bar)
-                                 (string-prefix-p date (plist-get bar :day)))
+                                 (stock-watch--intraday-bar-p bar date))
                                (stock-watch--parse-kline-response body))))
                          (if bars
                              (funcall callback bars nil)
@@ -357,6 +357,20 @@ to show the intraday chart for that day.")
              (kill-buffer response-buffer)))))
      nil
      t)))
+
+(defun stock-watch--intraday-bar-p (bar date)
+  "Return non-nil if BAR is an intraday record for DATE."
+  (let ((day (plist-get bar :day)))
+    (and (stringp day)
+         (>= (length day) 16)
+         (string-prefix-p date day))))
+
+(defun stock-watch--intraday-time (bar)
+  "Return HH:MM from intraday BAR."
+  (let ((day (plist-get bar :day)))
+    (if (and (stringp day) (>= (length day) 16))
+        (substring day 11 16)
+      "--:--")))
 
 (defun stock-watch--scale-price (price minimum maximum rows)
   "Scale PRICE between MINIMUM and MAXIMUM to a row index under ROWS."
@@ -462,15 +476,15 @@ to show the intraday chart for that day.")
     (dotimes (_ (length bars))
       (insert "─"))
     (insert "\n          ")
-    (let* ((first-time (substring (plist-get (car bars) :day) 11 16))
-           (last-time (substring (plist-get (car (last bars)) :day) 11 16))
+    (let* ((first-time (stock-watch--intraday-time (car bars)))
+           (last-time (stock-watch--intraday-time (car (last bars))))
            (space-count (max 1 (- (length bars) (length first-time) (length last-time)))))
       (insert first-time (make-string space-count ?\s) last-time))
     (insert "\n\n")
     (insert "Time   Open    High     Low   Close       Volume\n")
     (dolist (bar bars)
       (insert (format "%s  %6.2f  %6.2f  %6.2f  %6.2f  %11s\n"
-                      (substring (plist-get bar :day) 11 16)
+                      (stock-watch--intraday-time bar)
                       (plist-get bar :open)
                       (plist-get bar :high)
                       (plist-get bar :low)
