@@ -37,7 +37,40 @@
 
 ;;; Code:
 
-(require 'stock-watch-core)
+(require 'cl-lib)
+
+(defconst stock-watch--module-files
+  '("stock-watch-config.el"
+    "stock-watch-fetch.el"
+    "stock-watch-keys.el"
+    "stock-watch-display.el"
+    "stock-watch-core.el")
+  "Stock-watch module files loaded by the package entry point.")
+
+(defun stock-watch--load-modules ()
+  "Load stock-watch modules in dependency order."
+  (let* ((entry-file (or load-file-name buffer-file-name))
+         (directory (and entry-file (file-name-directory entry-file))))
+    (if (and directory
+             (cl-every (lambda (module)
+                         (file-exists-p (expand-file-name module directory)))
+                       stock-watch--module-files))
+        (dolist (module stock-watch--module-files)
+          (load (expand-file-name module directory) nil nil))
+      (require 'stock-watch-core))))
+
+(stock-watch--load-modules)
+
+(declare-function stock-watch-start "stock-watch-core")
+(declare-function stock-watch--kline-history-days "stock-watch-core")
+
+;;;###autoload
+(defun stock-watch-reload ()
+  "Reload stock-watch source modules from the current package directory."
+  (interactive)
+  (stock-watch--load-modules)
+  (message "stock-watch reloaded; K-line fetch will request %d history days"
+           (stock-watch--kline-history-days)))
 
 ;;;###autoload
 (defalias 'stock-watch #'stock-watch-start)

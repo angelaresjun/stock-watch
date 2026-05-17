@@ -149,13 +149,19 @@
              :volume (stock-watch--alist-number 'volume item)))
      (json-read-from-string body))))
 
-(defun stock-watch--fetch-kline (code callback)
-  "Fetch K-line data for CODE and call CALLBACK with candles or error."
+(defun stock-watch--fetch-kline (code callback &optional datalen)
+  "Fetch K-line data for CODE and call CALLBACK with candles or error.
+
+When DATALEN is non-nil, fetch that many daily records.  Otherwise fetch
+enough records for both the visible K-line chart and configured moving
+averages."
   (let* ((url (format stock-watch--sina-kline-url
-                      (stock-watch-normalize-code code)
-                      240
-                      stock-watch-kline-days))
-         (url-request-extra-headers stock-watch--headers))
+                       (stock-watch-normalize-code code)
+                       240
+                       (or datalen
+                           (max stock-watch-kline-days
+                                (stock-watch--ma-history-days)))))
+          (url-request-extra-headers stock-watch--headers))
     (url-retrieve
      url
      (lambda (status)

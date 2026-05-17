@@ -15,8 +15,9 @@
 - Fetches stock names from the quote API automatically
 - Configurable refresh interval
 - Manual refresh with `g`
-- On-demand 10-day K-line chart with `C-c C-k`
+- On-demand 15-day K-line chart with `C-c C-k`
 - Intraday chart from a selected K-line date with `C-c C-m`
+- Moving-average chart for 5/10/15/20/30/60-day periods
 - Stop and quit with `q`
 - Highlighted rise/fall values
 - Threshold alert with Emacs bell
@@ -119,8 +120,19 @@ Disable alert bell:
 ### K-line days
 
 ```elisp
-(setq stock-watch-kline-days 10)
+(setq stock-watch-kline-days 15)
 ```
+
+### Moving averages
+
+```elisp
+(setq stock-watch-ma-periods '(5 10 15 20 30 60))
+(setq stock-watch-ma-sample-count 60)
+```
+
+The K-line fetch automatically requests enough history for the longest moving
+average.  With the default settings, it requests 119 daily records so MA60 can
+show 60 samples.
 
 ### Intraday chart
 
@@ -144,9 +156,9 @@ Intraday charts are built from recent 5-minute records by default:
 | Key | Action |
 | --- | --- |
 | `g` | Refresh quotes now |
-| `C-c C-k` | Show a 10-day K-line chart for the stock at point |
-| `RET` | Show a 10-day K-line chart for the stock at point |
-| `k` | Show a 10-day K-line chart for the stock at point |
+| `C-c C-k` | Show a K-line chart for the stock at point |
+| `RET` | Show a K-line chart for the stock at point |
+| `k` | Show a K-line chart for the stock at point |
 | `q` | Stop the refresh timer and quit the window |
 
 In the K-line buffer:
@@ -156,6 +168,14 @@ In the K-line buffer:
 | `C-c C-m` | Show the intraday chart for the date at point |
 | `RET` / `m` | Show the intraday chart for the date at point |
 | `q` | Quit the K-line window |
+
+### Development reload
+
+When working from a local checkout, reload all split modules with:
+
+```text
+M-x stock-watch-reload
+```
 
 ## Data Source
 
@@ -195,6 +215,7 @@ The stock table includes:
 ```
 
 Rising values are shown in red, falling values in green, and threshold alerts are highlighted.
+The K-line buffer also includes volume bars and a moving-average chart.
 
 ## Troubleshooting
 

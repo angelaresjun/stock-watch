@@ -44,6 +44,11 @@
       (stock-watch-normalize-code
        (read-string "Stock code: " (car stock-watch-symbols)))))
 
+(defun stock-watch--kline-history-days ()
+  "Return the number of daily records needed for K-line rendering."
+  (max stock-watch-kline-days
+       (stock-watch--ma-history-days)))
+
 (defun stock-watch-show-intraday-at-point ()
   "Show intraday chart for the K-line date at point."
   (interactive)
@@ -70,19 +75,25 @@
   "Show a recent K-line chart for CODE."
   (interactive (list (stock-watch--current-code)))
   (let* ((normalized-code (stock-watch-normalize-code code))
-         (name (stock-watch--name-by-code normalized-code)))
-    (message "Fetching K-line data for %s..." normalized-code)
+         (name (stock-watch--name-by-code normalized-code))
+         (history-days (stock-watch--kline-history-days)))
+    (message "Fetching K-line data for %s (%d history days)..."
+             normalized-code history-days)
     (stock-watch--fetch-kline
      normalized-code
      (lambda (candles error)
        (if error
            (message "Failed to fetch K-line data for %s: %s"
                     normalized-code error)
-         (condition-case err
-             (stock-watch--display-kline normalized-code candles name)
-           (error
-            (message "Failed to display K-line data for %s: %s"
-                     normalized-code (error-message-string err)))))))))
+          (when (< (length candles) history-days)
+            (message "Only fetched %d K-line records for %s; %d requested"
+                     (length candles) normalized-code history-days))
+          (condition-case err
+              (stock-watch--display-kline normalized-code candles name)
+            (error
+             (message "Failed to display K-line data for %s: %s"
+                      normalized-code (error-message-string err)))))))
+     history-days))
 
 (defun stock-watch--refresh-buffer ()
   "Refresh the stock watch buffer from `stock-watch--quotes'."

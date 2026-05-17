@@ -44,10 +44,28 @@ are also accepted."
   :type 'boolean
   :group 'stock-watch)
 
-(defcustom stock-watch-kline-days 10
+(defcustom stock-watch-kline-days 15
   "Number of trading days to show in the K-line chart."
   :type 'integer
   :group 'stock-watch)
+
+(defcustom stock-watch-ma-periods '(5 10 15 20 30 60)
+  "Moving-average periods to draw in the K-line chart."
+  :type '(repeat integer)
+  :group 'stock-watch)
+
+(defcustom stock-watch-ma-sample-count 60
+  "Number of recent moving-average sample points to draw."
+  :type 'integer
+  :group 'stock-watch)
+
+(defun stock-watch--ma-history-days ()
+  "Return the daily K-line records needed for configured moving averages."
+  (if stock-watch-ma-periods
+      (+ stock-watch-ma-sample-count
+         (apply #'max stock-watch-ma-periods)
+         -1)
+    0))
 
 (defcustom stock-watch-kline-buffer-name "*Stock Watch K-Line*"
   "Name of stock watch K-line buffer."
