@@ -15,6 +15,8 @@
 - Fetches stock names from the quote API automatically
 - Configurable refresh interval
 - Manual refresh with `g`
+- On-demand 10-day K-line chart with `k`
+- Intraday chart from a selected K-line date with `RET` or `m`
 - Stop and quit with `q`
 - Highlighted rise/fall values
 - Threshold alert with Emacs bell
@@ -57,8 +59,7 @@ The MELPA recipe for this repository should be:
 
 ```elisp
 (stock-watch :fetcher github
-             :repo "angelaresjun/stock-watch"
-             :files ("stock-watch.el"))
+             :repo "angelaresjun/stock-watch")
 ```
 
 ## Quick Start
@@ -115,10 +116,27 @@ Disable alert bell:
 (setq stock-watch-enable-alert nil)
 ```
 
+### K-line days
+
+```elisp
+(setq stock-watch-kline-days 10)
+```
+
+### Intraday chart
+
+Intraday charts are built from recent 5-minute records by default:
+
+```elisp
+(setq stock-watch-intraday-interval 5)
+(setq stock-watch-intraday-datalen 600)
+```
+
 ### Buffer name
 
 ```elisp
 (setq stock-watch-buffer-name "*Stock Watch*")
+(setq stock-watch-kline-buffer-name "*Stock Watch K-Line*")
+(setq stock-watch-intraday-buffer-name "*Stock Watch Intraday*")
 ```
 
 ## Key Bindings
@@ -126,7 +144,15 @@ Disable alert bell:
 | Key | Action |
 | --- | --- |
 | `g` | Refresh quotes now |
+| `k` | Show a 10-day K-line chart for the stock at point |
 | `q` | Stop the refresh timer and quit the window |
+
+In the K-line buffer:
+
+| Key | Action |
+| --- | --- |
+| `RET` / `m` | Show the intraday chart for the date at point |
+| `q` | Quit the K-line window |
 
 ## Data Source
 
@@ -134,6 +160,18 @@ The plugin uses Sina Finance's quote endpoint:
 
 ```text
 https://hq.sinajs.cn/list=sh600151,sz000678
+```
+
+K-line charts use Sina Finance's daily K-line endpoint:
+
+```text
+https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sh600151&scale=240&ma=no&datalen=10
+```
+
+Intraday charts use the same endpoint with a 5-minute scale and then filter the selected date:
+
+```text
+https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sh600151&scale=5&ma=no&datalen=600
 ```
 
 The response is GBK encoded. `stock-watch.el` decodes it automatically.

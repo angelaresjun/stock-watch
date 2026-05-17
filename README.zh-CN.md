@@ -15,6 +15,8 @@
 - 自动从行情接口获取股票名称
 - 可配置刷新间隔
 - 按 `g` 手动刷新
+- 按 `k` 查看最近 10 个交易日 K 线图
+- 在 K 线日期上按 `RET` 或 `m` 查看当天分时图
 - 按 `q` 停止刷新并退出
 - 高亮涨跌数值
 - 支持涨跌幅阈值提醒
@@ -56,8 +58,7 @@ M-x package-install RET stock-watch RET
 
 ```elisp
 (stock-watch :fetcher github
-             :repo "angelaresjun/stock-watch"
-             :files ("stock-watch.el"))
+             :repo "angelaresjun/stock-watch")
 ```
 
 ## 快速开始
@@ -114,10 +115,27 @@ M-x stock-watch
 (setq stock-watch-enable-alert nil)
 ```
 
+### K 线天数
+
+```elisp
+(setq stock-watch-kline-days 10)
+```
+
+### 分时图
+
+分时图默认使用最近的 5 分钟记录生成：
+
+```elisp
+(setq stock-watch-intraday-interval 5)
+(setq stock-watch-intraday-datalen 600)
+```
+
 ### 缓冲区名称
 
 ```elisp
 (setq stock-watch-buffer-name "*Stock Watch*")
+(setq stock-watch-kline-buffer-name "*Stock Watch K-Line*")
+(setq stock-watch-intraday-buffer-name "*Stock Watch Intraday*")
 ```
 
 ## 快捷键
@@ -125,7 +143,15 @@ M-x stock-watch
 | 按键 | 动作 |
 | --- | --- |
 | `g` | 立即刷新行情 |
+| `k` | 查看当前行股票的 10 日 K 线图 |
 | `q` | 停止刷新定时器并退出窗口 |
+
+在 K 线图窗口中：
+
+| 按键 | 动作 |
+| --- | --- |
+| `RET` / `m` | 查看当前日期的分时图 |
+| `q` | 退出 K 线窗口 |
 
 ## 数据来源
 
@@ -133,6 +159,18 @@ M-x stock-watch
 
 ```text
 https://hq.sinajs.cn/list=sh600151,sz000678
+```
+
+K 线图使用新浪财经日 K 线接口：
+
+```text
+https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sh600151&scale=240&ma=no&datalen=10
+```
+
+分时图使用同一个接口的 5 分钟数据，并按所选日期过滤：
+
+```text
+https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=sh600151&scale=5&ma=no&datalen=600
 ```
 
 接口响应为 GBK 编码，`stock-watch.el` 会自动解码。
