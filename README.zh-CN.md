@@ -7,6 +7,7 @@
 ## 功能
 
 - 在 Emacs 中实时查看 A 股行情表
+- 默认在 header line 显示上证指数摘要
 - 不依赖额外 Emacs 包
 - 支持 6 位股票代码，并自动推断市场前缀：
   - `6` / `9` -> `sh`
@@ -96,6 +97,21 @@ M-x stock-watch
 (setq stock-watch-symbols '("sh600151" "sz000678"))
 ```
 
+### 市场指数
+
+header line 默认显示上证指数：
+
+```elisp
+(setq stock-watch-index-symbols '("s_sh000001"))
+```
+
+也可以添加更多新浪指数代码：
+
+```elisp
+(setq stock-watch-index-symbols
+      '("s_sh000001" "s_sz399001" "s_sz399006"))
+```
+
 ### 刷新间隔
 
 ```elisp
@@ -126,11 +142,11 @@ M-x stock-watch
 
 ```elisp
 (setq stock-watch-ma-periods '(5 10 15 20 30 60))
-(setq stock-watch-ma-sample-count 30)
+(setq stock-watch-ma-sample-count 20)
 ```
 
-K 线会自动按最长均线拉取足够历史数据。默认配置下会请求 89 条日线，
-这样 MA60 也能显示 30 个样本点。图形界面下，每条均线会使用不同颜色；
+K 线会自动按最长均线拉取足够历史数据。默认配置下会请求 79 条日线，
+这样 MA60 也能显示 20 个样本点。图形界面下，每条均线会使用不同颜色；
 重叠位置保留先绘制的线条，以减少视觉噪音。
 
 ### 分时图

@@ -7,6 +7,7 @@
 ## Features
 
 - Real-time A-share quote table inside Emacs
+- Shanghai Composite index summary in the header line by default
 - No external Emacs package dependencies
 - Supports 6-digit stock codes and auto-infers market prefixes:
   - `6` / `9` -> `sh`
@@ -97,6 +98,21 @@ Prefixed codes also work:
 (setq stock-watch-symbols '("sh600151" "sz000678"))
 ```
 
+### Market indices
+
+The header line shows the Shanghai Composite by default:
+
+```elisp
+(setq stock-watch-index-symbols '("s_sh000001"))
+```
+
+You can add more Sina index symbols:
+
+```elisp
+(setq stock-watch-index-symbols
+      '("s_sh000001" "s_sz399001" "s_sz399006"))
+```
+
 ### Refresh interval
 
 ```elisp
@@ -127,12 +143,12 @@ Disable alert bell:
 
 ```elisp
 (setq stock-watch-ma-periods '(5 10 15 20 30 60))
-(setq stock-watch-ma-sample-count 30)
+(setq stock-watch-ma-sample-count 20)
 ```
 
 The K-line fetch automatically requests enough history for the longest moving
-average.  With the default settings, it requests 89 daily records so MA60 can
-show 30 samples.  Each moving-average line is colored separately in graphical
+average.  With the default settings, it requests 79 daily records so MA60 can
+show 20 samples.  Each moving-average line is colored separately in graphical
 Emacs frames; overlaps keep the first drawn line to reduce visual noise.
 
 ### Intraday chart

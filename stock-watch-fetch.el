@@ -41,8 +41,19 @@
       (setq prefix (match-string 1 raw)
             bare (match-string 2 raw)))
     (unless (and (string-match-p "\\`[0-9]\\{6\\}\\'" bare))
-      (user-error "Stock code must be 6 digits or prefixed with sh/sz/bj: %s" code))
-    (concat (or prefix (stock-watch--infer-market-prefix bare)) bare)))
+       (user-error "Stock code must be 6 digits or prefixed with sh/sz/bj: %s" code))
+     (concat (or prefix (stock-watch--infer-market-prefix bare)) bare)))
+
+(defun stock-watch-normalize-index-code (code)
+  "Normalize index CODE to Sina index format, such as s_sh000001."
+  (let ((raw (downcase (string-trim (format "%s" code)))))
+    (cond
+     ((string-match-p "\\`s_\\(sh\\|sz\\|bj\\)[0-9]\\{6\\}\\'" raw)
+      raw)
+     ((string-match-p "\\`\\(sh\\|sz\\|bj\\)[0-9]\\{6\\}\\'" raw)
+      (concat "s_" raw))
+     (t
+      (user-error "Index code must look like s_sh000001 or sh000001: %s" code)))))
 
 (defun stock-watch--parse-line (line)
   "Parse one Sina response LINE and return a plist quote."
@@ -66,30 +77,72 @@
                   :change change
                   :pct-change pct
                   :volume (/ volume-shares 100)
-                  :amount amount
+                   :amount amount
+                   :time (format-time-string "%H:%M:%S"))))))))
+
+(defun stock-watch--parse-index-line (line)
+  "Parse one Sina response LINE and return an index plist."
+  (when (string-match "\\`var hq_str_\\(s_[a-z][a-z][0-9]+\\)=\"\\(.*\\)\";?\\'" line)
+    (let* ((code (match-string 1 line))
+           (content (match-string 2 line))
+           (parts (split-string content ",")))
+      (when (>= (length parts) 6)
+        (let ((name (nth 0 parts)))
+          (unless (string-empty-p name)
+            (list :code code
+                  :name name
+                  :price (string-to-number (nth 1 parts))
+                  :change (string-to-number (nth 2 parts))
+                  :pct-change (string-to-number (nth 3 parts))
+                  :volume (string-to-number (nth 4 parts))
+                  :amount (string-to-number (nth 5 parts))
                   :time (format-time-string "%H:%M:%S"))))))))
+
+(defun stock-watch--parse-market-response (body)
+  "Parse Sina response BODY into stock quotes and index quotes."
+  (let ((quotes-by-code (make-hash-table :test #'equal))
+        (indices-by-code (make-hash-table :test #'equal)))
+    (dolist (line (split-string body "\n" t))
+      (let ((trimmed-line (string-trim line)))
+        (when-let* ((quote (stock-watch--parse-line trimmed-line)))
+          (puthash (plist-get quote :code) quote quotes-by-code))
+        (when-let* ((index (stock-watch--parse-index-line trimmed-line)))
+          (puthash (plist-get index :code) index indices-by-code))))
+    (list
+     (mapcar
+      (lambda (symbol)
+        (let* ((code (stock-watch-normalize-code symbol))
+               (quote (gethash code quotes-by-code)))
+          (or quote
+              (list :code code
+                    :name code
+                    :price 0.0
+                    :change 0.0
+                    :pct-change 0.0
+                    :volume 0
+                    :amount 0.0
+                    :time (format-time-string "%H:%M:%S")
+                    :error "No data"))))
+      stock-watch-symbols)
+     (mapcar
+      (lambda (symbol)
+        (let* ((code (stock-watch-normalize-index-code symbol))
+               (index (gethash code indices-by-code)))
+          (or index
+              (list :code code
+                    :name code
+                    :price 0.0
+                    :change 0.0
+                    :pct-change 0.0
+                    :volume 0
+                    :amount 0.0
+                    :time (format-time-string "%H:%M:%S")
+                    :error "No data"))))
+      stock-watch-index-symbols))))
 
 (defun stock-watch--parse-response (body)
   "Parse Sina response BODY into quote plists."
-  (let ((quotes-by-code (make-hash-table :test #'equal)))
-    (dolist (line (split-string body "\n" t))
-      (when-let* ((quote (stock-watch--parse-line (string-trim line))))
-        (puthash (plist-get quote :code) quote quotes-by-code)))
-    (mapcar
-     (lambda (symbol)
-       (let* ((code (stock-watch-normalize-code symbol))
-              (quote (gethash code quotes-by-code)))
-         (or quote
-             (list :code code
-                   :name code
-                   :price 0.0
-                   :change 0.0
-                   :pct-change 0.0
-                   :volume 0
-                   :amount 0.0
-                   :time (format-time-string "%H:%M:%S")
-                   :error "No data"))))
-     stock-watch-symbols)))
+  (car (stock-watch--parse-market-response body)))
 
 (defun stock-watch--error-quotes (error)
   "Build placeholder quotes with ERROR."
@@ -105,11 +158,33 @@
              :amount 0.0
              :time (format-time-string "%H:%M:%S")
              :error error)))
-   stock-watch-symbols))
+    stock-watch-symbols))
 
-(defun stock-watch--fetch (callback)
-  "Fetch quotes asynchronously and call CALLBACK with parsed quotes."
-  (let* ((codes (mapconcat #'stock-watch-normalize-code stock-watch-symbols ","))
+(defun stock-watch--error-indices (error)
+  "Build placeholder indices with ERROR."
+  (mapcar
+   (lambda (symbol)
+     (let ((code (stock-watch-normalize-index-code symbol)))
+       (list :code code
+             :name code
+             :price 0.0
+             :change 0.0
+             :pct-change 0.0
+             :volume 0
+             :amount 0.0
+             :time (format-time-string "%H:%M:%S")
+             :error error)))
+   stock-watch-index-symbols))
+
+(defun stock-watch--fetch-market (callback)
+  "Fetch stocks and indices asynchronously.
+Call CALLBACK with two arguments: stock quotes and index quotes."
+  (let* ((codes (mapconcat
+                 #'identity
+                 (append (mapcar #'stock-watch-normalize-code stock-watch-symbols)
+                         (mapcar #'stock-watch-normalize-index-code
+                                 stock-watch-index-symbols))
+                 ","))
          (url (format stock-watch--sina-url codes))
          (url-request-extra-headers stock-watch--headers))
     (url-retrieve
@@ -118,17 +193,28 @@
        (let ((response-buffer (current-buffer)))
          (unwind-protect
              (if-let* ((error (plist-get status :error)))
-                 (funcall callback (stock-watch--error-quotes (format "%s" error)))
+                 (funcall callback
+                          (stock-watch--error-quotes (format "%s" error))
+                          (stock-watch--error-indices (format "%s" error)))
                (goto-char (point-min))
                (if (not (re-search-forward "\r?\n\r?\n" nil t))
-                   (funcall callback (stock-watch--error-quotes "Malformed HTTP response"))
+                   (funcall callback
+                            (stock-watch--error-quotes "Malformed HTTP response")
+                            (stock-watch--error-indices "Malformed HTTP response"))
                  (let* ((raw-body (buffer-substring-no-properties (point) (point-max)))
-                        (body (decode-coding-string raw-body 'gbk)))
-                   (funcall callback (stock-watch--parse-response body)))))
+                        (body (decode-coding-string raw-body 'gbk))
+                        (parsed (stock-watch--parse-market-response body)))
+                   (funcall callback (car parsed) (cadr parsed)))))
            (when (buffer-live-p response-buffer)
              (kill-buffer response-buffer)))))
      nil
      t)))
+
+(defun stock-watch--fetch (callback)
+  "Fetch quotes asynchronously and call CALLBACK with parsed quotes."
+  (stock-watch--fetch-market
+   (lambda (quotes _indices)
+     (funcall callback quotes))))
 
 (defun stock-watch--alist-number (key alist)
   "Return numeric value for KEY in ALIST."

@@ -82,8 +82,35 @@
                "-"
              (propertize (stock-watch--signed-number pct t) 'face face))
            (stock-watch--format-number volume)
-           (format "%.1f" (/ amount 10000.0))
-           time))))
+            (format "%.1f" (/ amount 10000.0))
+            time))))
+
+(defun stock-watch--index-summary (indices)
+  "Return a compact propertized summary for INDICES."
+  (if indices
+      (mapconcat
+       (lambda (index)
+         (let* ((name (plist-get index :name))
+                (price (plist-get index :price))
+                (change (plist-get index :change))
+                (pct (plist-get index :pct-change))
+                (error (plist-get index :error))
+                (face (if error
+                          'stock-watch-error-face
+                        (stock-watch--quote-face pct))))
+           (if error
+               (format "%s: %s" name error)
+             (format "%s %.2f %s"
+                     name
+                     price
+                     (propertize
+                      (format "%s %.2f%%"
+                              (stock-watch--signed-number change)
+                              pct)
+                      'face face)))))
+       indices
+       " | ")
+    "No indices"))
 
 (defun stock-watch--scale-price (price minimum maximum rows)
   "Scale PRICE between MINIMUM and MAXIMUM to a row index under ROWS."

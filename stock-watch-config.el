@@ -24,6 +24,14 @@ are also accepted."
   :type '(repeat string)
   :group 'stock-watch)
 
+(defcustom stock-watch-index-symbols '("s_sh000001")
+  "Market indices to show above the stock table.
+
+Use Sina index symbols such as s_sh000001 for the Shanghai Composite,
+s_sz399001 for the Shenzhen Component, and s_sz399006 for ChiNext."
+  :type '(repeat string)
+  :group 'stock-watch)
+
 (defcustom stock-watch-refresh-interval 5
   "Refresh interval in seconds."
   :type 'integer
@@ -54,7 +62,7 @@ are also accepted."
   :type '(repeat integer)
   :group 'stock-watch)
 
-(defcustom stock-watch-ma-sample-count 30
+(defcustom stock-watch-ma-sample-count 20
   "Number of recent moving-average sample points to draw."
   :type 'integer
   :group 'stock-watch)

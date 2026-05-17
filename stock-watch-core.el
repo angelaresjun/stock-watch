@@ -19,6 +19,7 @@
 
 (defvar stock-watch--timer nil)
 (defvar stock-watch--quotes nil)
+(defvar stock-watch--indices nil)
 (defvar stock-watch--alerted-codes nil)
 (defvar stock-watch--last-update nil)
 
@@ -95,18 +96,44 @@
                       normalized-code (error-message-string err)))))))
      history-days))
 
+(defun stock-watch--goto-entry (entry-id column)
+  "Move point to ENTRY-ID and restore COLUMN when possible."
+  (let ((position (point-min))
+        found)
+    (while (and (not found) (< position (point-max)))
+      (when (equal (get-text-property position 'tabulated-list-id) entry-id)
+        (setq found position))
+      (let ((next-position
+             (next-single-property-change
+              position 'tabulated-list-id nil (point-max))))
+        (setq position
+              (if (= next-position position)
+                  (1+ position)
+                next-position))))
+    (when found
+      (goto-char found)
+      (beginning-of-line)
+      (move-to-column column))))
+
 (defun stock-watch--refresh-buffer ()
   "Refresh the stock watch buffer from `stock-watch--quotes'."
   (when-let* ((buffer (get-buffer stock-watch-buffer-name)))
     (with-current-buffer buffer
-      (setq tabulated-list-entries
-            (mapcar #'stock-watch--entry stock-watch--quotes))
-      (tabulated-list-print t)
-      (setq header-line-format
-            (format "Last update: %s | Interval: %ss | Alert: ±%.2f%% | g refresh | C-c C-k K-line | q quit"
-                    (or stock-watch--last-update "-")
-                    stock-watch-refresh-interval
-                    stock-watch-alert-threshold-pct)))))
+      (let ((current-entry (tabulated-list-get-id))
+            (current-column (current-column)))
+        (setq tabulated-list-entries
+              (mapcar #'stock-watch--entry stock-watch--quotes))
+        (tabulated-list-print t)
+        (let ((inhibit-read-only t))
+          (goto-char (point-min))
+          (insert
+           (format "Indices: %s\nLast update: %s | Interval: %ss | Alert: ±%.2f%% | g refresh | C-c C-k K-line | q quit\n\n"
+                   (stock-watch--index-summary stock-watch--indices)
+                   (or stock-watch--last-update "-")
+                   stock-watch-refresh-interval
+                   stock-watch-alert-threshold-pct)))
+        (when current-entry
+          (stock-watch--goto-entry current-entry current-column))))))
 
 (defun stock-watch--process-alerts (quotes)
   "Ring bell for newly alerted QUOTES."
@@ -128,12 +155,13 @@
 (defun stock-watch-refresh ()
   "Refresh stock quotes now."
   (interactive)
-  (stock-watch--fetch
-   (lambda (quotes)
-     (setq stock-watch--quotes quotes
-           stock-watch--last-update (format-time-string "%Y-%m-%d %H:%M:%S"))
-     (stock-watch--process-alerts quotes)
-     (stock-watch--refresh-buffer))))
+  (stock-watch--fetch-market
+   (lambda (quotes indices)
+      (setq stock-watch--quotes quotes
+            stock-watch--indices indices
+            stock-watch--last-update (format-time-string "%Y-%m-%d %H:%M:%S"))
+      (stock-watch--process-alerts quotes)
+      (stock-watch--refresh-buffer))))
 
 (defun stock-watch-start ()
   "Start stock watcher and open `stock-watch-buffer-name'."
